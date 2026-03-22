@@ -17,27 +17,37 @@ public class ClientGUI extends JFrame {
     }
 
     private void showLoginScreen() {
-        JFrame loginFrame = new JFrame("Connect Social - Login");
-        loginFrame.setSize(300, 150);
-        loginFrame.setLayout(new FlowLayout());
+        JFrame loginFrame = new JFrame("Connect Social - Join");
+        loginFrame.setSize(350, 200);
+        loginFrame.setLayout(new GridLayout(4, 1, 10, 10));
         loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         loginFrame.setLocationRelativeTo(null);
 
+        JPanel userPanel = new JPanel(new FlowLayout());
+        userPanel.add(new JLabel("Username:"));
         JTextField userField = new JTextField(15);
-        JButton loginButton = new JButton("Join Chat");
-        JLabel label = new JLabel("Enter your username:");
+        userPanel.add(userField);
 
+        JPanel serverPanel = new JPanel(new FlowLayout());
+        serverPanel.add(new JLabel("Server IP:"));
+        JTextField serverField = new JTextField("localhost", 15);
+        serverPanel.add(serverField);
+
+        JButton loginButton = new JButton("Connect to Chat");
+        
         loginButton.addActionListener(e -> {
             username = userField.getText();
-            if (!username.isEmpty()) {
+            String serverAddress = serverField.getText();
+            if (!username.isEmpty() && !serverAddress.isEmpty()) {
                 loginFrame.dispose();
                 initializeChatGUI();
-                connectToServer();
+                connectToServer(serverAddress);
             }
         });
 
-        loginFrame.add(label);
-        loginFrame.add(userField);
+        loginFrame.add(new JLabel("Welcome to Social Connect!", SwingConstants.CENTER));
+        loginFrame.add(userPanel);
+        loginFrame.add(serverPanel);
         loginFrame.add(loginButton);
         loginFrame.setVisible(true);
     }
@@ -81,9 +91,9 @@ public class ClientGUI extends JFrame {
         setVisible(true);
     }
 
-    private void connectToServer() {
+    private void connectToServer(String host) {
         try {
-            Socket socket = new Socket("localhost", 80);
+            Socket socket = new Socket(host, 80);
             client = new Client(socket, username);
             
             // Override the message listener to update the GUI
