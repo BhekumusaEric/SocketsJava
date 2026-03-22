@@ -8,8 +8,13 @@ public class Server {
     private static ArrayList<ClientHandler> clients = new ArrayList<>();
 
     public static void main(String[] args) throws IOException {
-        ServerSocket serverSocket = new ServerSocket(80);
-        System.out.println("Social Connect Server running at port 80");
+        // Use PORT from environment variable (common in cloud hosts) or default to 80
+        String portStr = System.getenv("PORT");
+        int port = (portStr != null) ? Integer.parseInt(portStr) : 80;
+
+        // Bind to 0.0.0.0 to allow external connections in the cloud
+        ServerSocket serverSocket = new ServerSocket(port, 50, java.net.InetAddress.getByName("0.0.0.0"));
+        System.out.println("Social Connect Server running on port " + port);
         
         try {
             while (true) {
