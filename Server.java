@@ -1,30 +1,104 @@
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 
 public class Server {
+    // List to keep track of all connected clients
+    private static ArrayList<ClientHandler> clients = new ArrayList<>();
+
     public static void main(String[] args) throws IOException {
+        ServerSocket serverSocket = new ServerSocket(80);
+        System.out.println("Social Connect Server running at port 80");
+        
+        try {
             while (true) {
-                Socket socket;
-                System.out.println("Server running at port 80");
-                socket = new ServerSocket(80).accept();
-                System.out.println("Client connected from :" + socket.getInetAddress());
-                InputStreamReader inputStreamReader = new InputStreamReader(socket.getInputStream());
-                OutputStreamWriter outputStreamWriter = new OutputStreamWriter(socket.getOutputStream());
-                BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
-                BufferedWriter bufferedWriter = new BufferedWriter(outputStreamWriter);
+                Socket socket = serverSocket.accept();
+                System.out.println("New connection from: " + socket.getInetAddress());
+                
+                // Create a handler for each client and run it in a new thread
+                ClientHandler clientHandler = new ClientHandler(socket);
+                clients.add(clientHandler);
+                new Thread(clientHandler).start();
+            }
+        } finally {
+            serverSocket.close();
+        }
+    }
 
-                while (true) {
-                    String msgFrormClient = bufferedReader.readLine();
-                    System.out.println("Client : " + msgFrormClient);
-                    bufferedWriter.write("Message received ");
-                    bufferedWriter.newLine();
-                    bufferedWriter.flush();
-
-                    if (msgFrormClient.equalsIgnoreCase("BYE")) {
-                        break;
-                    }
-                }
+    // Send a message to all clients except the sender
+    public static void broadcast(String message, ClientHandler sender) {
+        for (ClientHandler client : clients) {
+            if (client != sender) {
+                client.sendMessage(message);
             }
         }
     }
+
+    // Remove client from the list when they disconnect
+    public static void removeClient(ClientHandler clientHandler) {
+        clients.remove(clientHandler);
+    }
+}
+
+class ClientHandler implements Runnable {
+    private Socket socket;
+    private BufferedReader bufferedReader;
+    private BufferedWriter bufferedWriter;
+    private String clientUsername;
+
+    public ClientHandler(Socket socket) {
+        try {
+            this.socket = socket;
+            this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+            
+            // First message from client should be their username
+            this.clientUsername = bufferedReader.readLine();
+            Server.broadcast("SERVER: " + clientUsername + " has joined the chat!", this);
+            System.out.println(clientUsername + " joined.");
+        } catch (IOException e) {
+            closeEverything();
+        }
+    }
+
+    @Override
+    public void run() {
+        String messageFromClient;
+        while (socket.isConnected()) {
+            try {
+                messageFromClient = bufferedReader.readLine();
+                if (messageFromClient == null) {
+                    closeEverything();
+                    break;
+                }
+                Server.broadcast(clientUsername + ": " + messageFromClient, this);
+            } catch (IOException e) {
+                closeEverything();
+                break;
+            }
+        }
+    }
+
+    public void sendMessage(String message) {
+        try {
+            bufferedWriter.write(message);
+            bufferedWriter.newLine();
+            bufferedWriter.flush();
+        } catch (IOException e) {
+            closeEverything();
+        }
+    }
+
+    private void closeEverything() {
+        Server.removeClient(this);
+        Server.broadcast("SERVER: " + clientUsername + " has left the chat.", this);
+        try {
+            if (bufferedReader != null) bufferedReader.close();
+            if (bufferedWriter != null) bufferedWriter.close();
+            if (socket != null) socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
